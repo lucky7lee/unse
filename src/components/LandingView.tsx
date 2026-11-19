@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   Camera,
   ImagePlus,
@@ -22,6 +22,10 @@ interface LandingViewProps {
   photoError: string | null;
 }
 
+const CURRENT_YEAR = new Date().getFullYear();
+const YEARS = Array.from({ length: CURRENT_YEAR - 1920 + 1 }, (_, i) => CURRENT_YEAR - i);
+const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
+
 export const LandingView: React.FC<LandingViewProps> = ({
   myeongri,
   user,
@@ -34,17 +38,57 @@ export const LandingView: React.FC<LandingViewProps> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
-  const birthInputRef = useRef<HTMLInputElement>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+
+  // user.birthDate ("YYYY-MM-DD")를 년, 월, 일로 분해
+  const [selectedYear, setSelectedYear] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState('');
+  const [selectedDay, setSelectedDay] = useState('');
+
+  useEffect(() => {
+    if (user.birthDate) {
+      const parts = user.birthDate.split('-');
+      if (parts.length === 3) {
+        setSelectedYear(parts[0]);
+        setSelectedMonth(String(Number(parts[1])));
+        setSelectedDay(String(Number(parts[2])));
+      }
+    }
+  }, [user.birthDate]);
+
+  // 선택된 년/월에 따른 일수 계산 (윤년 등 자동 반영)
+  const maxDays =
+    selectedYear && selectedMonth
+      ? new Date(Number(selectedYear), Number(selectedMonth), 0).getDate()
+      : 31;
+  const days = Array.from({ length: maxDays }, (_, i) => i + 1);
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setValidationError(null);
     onChangeUser({ ...user, name: e.target.value });
   };
 
-  const handleBirthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBirthChange = (y: string, m: string, d: string) => {
     setValidationError(null);
-    onChangeUser({ ...user, birthDate: e.target.value });
+    setSelectedYear(y);
+    setSelectedMonth(m);
+
+    // 변경된 월의 최대 일수보다 현재 선택된 일이 크면 보정
+    let validDay = d;
+    if (y && m && d) {
+      const limit = new Date(Number(y), Number(m), 0).getDate();
+      if (Number(d) > limit) {
+        validDay = String(limit);
+      }
+    }
+    setSelectedDay(validDay);
+
+    if (y && m && validDay) {
+      const formatted = `${y}-${String(m).padStart(2, '0')}-${String(validDay).padStart(2, '0')}`;
+      onChangeUser({ ...user, birthDate: formatted });
+    } else {
+      onChangeUser({ ...user, birthDate: '' });
+    }
   };
 
   const validateAndProceed = (action: () => void) => {
@@ -53,9 +97,8 @@ export const LandingView: React.FC<LandingViewProps> = ({
       nameInputRef.current?.focus();
       return;
     }
-    if (!user.birthDate.trim()) {
-      setValidationError('생년월일을 입력해 주세요.');
-      birthInputRef.current?.focus();
+    if (!selectedYear || !selectedMonth || !selectedDay || !user.birthDate) {
+      setValidationError('생년월일(년, 월, 일)을 모두 선택해 주세요.');
       return;
     }
     setValidationError(null);
@@ -127,7 +170,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
           />
         </div>
 
-        {/* 생년월일 입력 */}
+        {/* 생년월일 콤보 박스 (년, 월, 일) */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label
             style={{
@@ -140,17 +183,55 @@ export const LandingView: React.FC<LandingViewProps> = ({
             }}
           >
             <Calendar size={15} />
-            <span>생년월일</span>
+            <span>생년월일 선택</span>
           </label>
-          <input
-            ref={birthInputRef}
-            type="date"
-            className="input-field"
-            value={user.birthDate}
-            onChange={handleBirthChange}
-            max={new Date().toISOString().split('T')[0]}
-            style={{ colorScheme: 'dark' }}
-          />
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: 8 }}>
+            {/* 년도 선택 콤보 박스 */}
+            <select
+              className="input-field"
+              value={selectedYear}
+              onChange={(e) => handleBirthChange(e.target.value, selectedMonth, selectedDay)}
+              aria-label="태어난 해 선택"
+            >
+              <option value="">년도 선택</option>
+              {YEARS.map((y) => (
+                <option key={y} value={y}>
+                  {y}년
+                </option>
+              ))}
+            </select>
+
+            {/* 월 선택 콤보 박스 */}
+            <select
+              className="input-field"
+              value={selectedMonth}
+              onChange={(e) => handleBirthChange(selectedYear, e.target.value, selectedDay)}
+              aria-label="태어난 월 선택"
+            >
+              <option value="">월 선택</option>
+              {MONTHS.map((m) => (
+                <option key={m} value={m}>
+                  {m}월
+                </option>
+              ))}
+            </select>
+
+            {/* 일 선택 콤보 박스 */}
+            <select
+              className="input-field"
+              value={selectedDay}
+              onChange={(e) => handleBirthChange(selectedYear, selectedMonth, e.target.value)}
+              aria-label="태어난 일 선택"
+            >
+              <option value="">일 선택</option>
+              {days.map((d) => (
+                <option key={d} value={d}>
+                  {d}일
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* 유효성 검사 에러 메시지 */}

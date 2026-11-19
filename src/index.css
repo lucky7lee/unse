@@ -696,6 +696,22 @@ body {
   outline: none;
 }
 
+select.input-field {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23f5d882' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+  cursor: pointer;
+}
+
+select.input-field option {
+  background-color: #14182b;
+  color: #f5f3ec;
+  padding: 8px;
+}
+
 .input-field:focus {
   border-color: var(--gold-main);
 }
