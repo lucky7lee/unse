@@ -186,15 +186,15 @@ export const LandingView: React.FC<LandingViewProps> = ({
             <span>생년월일 선택</span>
           </label>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: 8 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '112px 82px 82px', gap: 8, maxWidth: '100%' }}>
             {/* 년도 선택 콤보 박스 */}
             <select
-              className="input-field"
+              className="input-field birth-select"
               value={selectedYear}
               onChange={(e) => handleBirthChange(e.target.value, selectedMonth, selectedDay)}
               aria-label="태어난 해 선택"
             >
-              <option value="">년도 선택</option>
+              <option value="">년도</option>
               {YEARS.map((y) => (
                 <option key={y} value={y}>
                   {y}년
@@ -204,12 +204,12 @@ export const LandingView: React.FC<LandingViewProps> = ({
 
             {/* 월 선택 콤보 박스 */}
             <select
-              className="input-field"
+              className="input-field birth-select"
               value={selectedMonth}
               onChange={(e) => handleBirthChange(selectedYear, e.target.value, selectedDay)}
               aria-label="태어난 월 선택"
             >
-              <option value="">월 선택</option>
+              <option value="">월</option>
               {MONTHS.map((m) => (
                 <option key={m} value={m}>
                   {m}월
@@ -219,12 +219,12 @@ export const LandingView: React.FC<LandingViewProps> = ({
 
             {/* 일 선택 콤보 박스 */}
             <select
-              className="input-field"
+              className="input-field birth-select"
               value={selectedDay}
               onChange={(e) => handleBirthChange(selectedYear, selectedMonth, e.target.value)}
               aria-label="태어난 일 선택"
             >
-              <option value="">일 선택</option>
+              <option value="">일</option>
               {days.map((d) => (
                 <option key={d} value={d}>
                   {d}일
@@ -318,15 +318,22 @@ export const LandingView: React.FC<LandingViewProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 6,
-          fontSize: 12,
-          color: 'var(--text-muted)',
+          gap: 9,
+          fontSize: 14.5,
+          lineHeight: 1.55,
+          color: '#cbd5e1',
+          textAlign: 'center',
           marginTop: 'auto',
-          paddingTop: 8,
+          paddingTop: 10,
+          paddingBottom: 4,
         }}
       >
-        <ShieldCheck size={14} color="#34d399" />
-        <span>카메라 영상은 외부로 전송되지 않고 기기에서만 안전하게 분석됩니다</span>
+        <ShieldCheck size={18} color="#34d399" style={{ flexShrink: 0 }} />
+        <span>
+          카메라 영상은 외부로 전송되지 않고
+          <br />
+          기기에서만 안전하게 분석됩니다
+        </span>
       </div>
     </main>
   );

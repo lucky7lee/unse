@@ -229,7 +229,7 @@ export const FortuneResult: React.FC<FortuneResultProps> = ({
 
         <button type="button" className="btn-secondary" onClick={onGoHome}>
           <Home size={16} />
-          <span>처음으로 (정보 수정)</span>
+          <span>처음(메인)으로</span>
         </button>
       </div>
     </main>
