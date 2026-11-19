@@ -35,24 +35,24 @@ const ELEMENT_META: Record<
   { keyword: string; summary: string }
 > = {
   '목(木)': {
-    keyword: '성장과 새로운 시작',
-    summary: '새싹이 뻗어 나가듯 추진력과 아이디어가 살아나는 날입니다.',
+    keyword: '새로운 시작과 성장',
+    summary: '새싹이 힘차게 돋아나듯 새로운 아이디어와 추진력이 살아나는 날입니다.',
   },
   '화(火)': {
-    keyword: '열정과 인기의 발산',
-    summary: '존재감이 빛나고 사람들의 시선과 호감이 모이는 화기(火氣)의 날입니다.',
+    keyword: '열정과 활기찬 소통',
+    summary: '주변 사람들에게 긍정적인 에너지를 전하고 주목을 받기 좋은 날입니다.',
   },
   '토(土)': {
-    keyword: '신뢰와 재물의 축적',
-    summary: '중심을 잡고 차분히 쌓아 올릴수록 실속과 재복이 두터워지는 날입니다.',
+    keyword: '안정과 실속 있는 결실',
+    summary: '차분하게 중심을 잡고 실속을 챙길수록 좋은 성과가 따라오는 날입니다.',
   },
   '금(金)': {
-    keyword: '결단과 명쾌한 성과',
-    summary: '군더더기를 덜어내고 핵심을 찌를 때 깔끔한 결실이 따라오는 날입니다.',
+    keyword: '깔끔한 정리와 명쾌한 판단',
+    summary: '복잡한 일을 명쾌하게 정리하고 깔끔하게 마무리하기 좋은 날입니다.',
   },
   '수(水)': {
-    keyword: '지혜와 유연한 소통',
-    summary: '물처럼 부드럽게 흐르며 직감과 인맥에서 뜻밖의 힌트를 얻는 날입니다.',
+    keyword: '유연한 지혜와 편안한 흐름',
+    summary: '흐르는 물처럼 유연하게 대처하며 자연스럽게 기회를 얻는 날입니다.',
   },
 };
 
@@ -62,7 +62,7 @@ export function getMyeongriDay(date: Date = new Date()): MyeongriDay {
   const day = date.getDate();
   const weekday = WEEKDAYS[date.getDay()];
 
-  // 1900-01-01 = 갑술일 (60갑자 인덱스 10) 기준 일진 계산
+  // 1900-01-01 = 갑술일 (60갑자 인덱스 10) 기준
   const refUtc = Date.UTC(1900, 0, 1);
   const targetUtc = Date.UTC(year, date.getMonth(), day);
   const diffDays = Math.floor((targetUtc - refUtc) / 86_400_000);
@@ -81,14 +81,62 @@ export function getMyeongriDay(date: Date = new Date()): MyeongriDay {
   return {
     dateText: `${year}년 ${month}월 ${day}일 (${weekday})`,
     isoDate,
-    yearGanji: `${yearStemObj.kr}${yearBranchObj.kr}(${yearStemObj.hanja}${yearBranchObj.hanja})년`,
-    dayGanji: `${dayStemObj.kr}${dayBranchObj.kr}(${dayStemObj.hanja}${dayBranchObj.hanja})일`,
-    dayStem: `${dayStemObj.kr}(${dayStemObj.hanja})`,
-    dayBranch: `${dayBranchObj.kr}(${dayBranchObj.hanja})`,
+    yearGanji: `${yearStemObj.kr}${yearBranchObj.kr}년`,
+    dayGanji: `${dayStemObj.kr}${dayBranchObj.kr}일`,
+    dayStem: `${dayStemObj.kr}`,
+    dayBranch: `${dayBranchObj.kr}`,
     element: dayStemObj.element,
     elementColor: dayStemObj.color,
     elementKeyword: meta.keyword,
     energySummary: meta.summary,
     daySeed: year * 10000 + month * 100 + day,
+  };
+}
+
+const ZODIAC_ANIMALS = [
+  '원숭이',
+  '닭',
+  '개',
+  '돼지',
+  '쥐',
+  '소',
+  '호랑이',
+  '토끼',
+  '용',
+  '뱀',
+  '말',
+  '양',
+];
+
+export interface UserBirthInfo {
+  zodiac: string;
+  age: number;
+  formatted: string;
+  birthYear: number;
+}
+
+export function getUserBirthInfo(birthDateStr: string): UserBirthInfo {
+  if (!birthDateStr) {
+    return { zodiac: '', age: 0, formatted: '', birthYear: 0 };
+  }
+  const parts = birthDateStr.split('-').map(Number);
+  if (parts.length !== 3 || isNaN(parts[0])) {
+    return { zodiac: '', age: 0, formatted: '', birthYear: 0 };
+  }
+  const [y, m, d] = parts;
+  const zodiac = ZODIAC_ANIMALS[y % 12] + '띠';
+
+  const today = new Date();
+  let age = today.getFullYear() - y;
+  const mDiff = today.getMonth() + 1 - m;
+  if (mDiff < 0 || (mDiff === 0 && today.getDate() < d)) {
+    age--;
+  }
+
+  return {
+    zodiac,
+    age: Math.max(0, age),
+    formatted: `${y}년 ${m}월 ${d}일생`,
+    birthYear: y,
   };
 }

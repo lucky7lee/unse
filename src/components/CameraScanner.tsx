@@ -1,30 +1,32 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   SwitchCamera,
-  Sparkles,
   ArrowLeft,
   ImagePlus,
   AlertTriangle,
   Wand2,
+  CheckCircle2,
 } from 'lucide-react';
 import { FaceMetrics } from '../types/fortune';
 import {
+  checkIsFaceFrontal,
   drawMysticalOverlay,
   extractFaceMetrics,
-  generateLiveCommentary,
   getVideoFaceLandmarker,
 } from '../lib/faceAnalyzer';
 
 interface CameraScannerProps {
+  userName: string;
   onComplete: (metrics: FaceMetrics) => void;
   onCancel: () => void;
   onUploadPhoto: (file: File) => void;
   onTryDemo: () => void;
 }
 
-const SCAN_HOLD_MS = 2800;
+const SCAN_DURATION_MS = 3000; // 정확히 3초 동안 정면 유지
 
 export const CameraScanner: React.FC<CameraScannerProps> = ({
+  userName,
   onComplete,
   onCancel,
   onUploadPhoto,
@@ -36,28 +38,28 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
 
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [statusText, setStatusText] = useState('AI 관상 모델과 카메라 준비 중...');
+  const [statusText, setStatusText] = useState('카메라와 얼굴 인식 모델 준비 중...');
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
 
   const [faceDetected, setFaceDetected] = useState(false);
-  const [liveMetrics, setLiveMetrics] = useState<FaceMetrics | null>(null);
-  const [commentary, setCommentary] = useState<string>(
-    '얼굴을 화면 중앙 점선 안에 맞춰주세요. 가볍게 미소 지으면 더 좋습니다 ✨'
-  );
+  const [isFrontal, setIsFrontal] = useState(false);
+  const [guideMessage, setGuideMessage] = useState('화면 중앙 가이드 안에 얼굴을 맞춰주세요');
   const [scanProgress, setScanProgress] = useState(0);
+  const [countdownSec, setCountdownSec] = useState<number | null>(null);
+
+  const [liveSmile, setLiveSmile] = useState<number | null>(null);
+  const [liveVitality, setLiveVitality] = useState<number | null>(null);
 
   const latestMetricsRef = useRef<FaceMetrics | null>(null);
   const completedRef = useRef(false);
-  const commentaryIndexRef = useRef(0);
-  const lastCommentaryTimeRef = useRef(0);
-  const faceStartTimeRef = useRef<number | null>(null);
+  const frontalStartTimeRef = useRef<number | null>(null);
 
   const captureSnapshot = useCallback(
     (isMirrored: boolean): string | undefined => {
       const video = videoRef.current;
       if (!video || video.videoWidth === 0) return undefined;
 
-      const size = 240;
+      const size = 260;
       const off = document.createElement('canvas');
       off.width = size;
       off.height = size;
@@ -77,7 +79,7 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
       }
       ctx.drawImage(video, sx, sy, minSide, minSide, 0, 0, size, size);
       ctx.restore();
-      return off.toDataURL('image/jpeg', 0.82);
+      return off.toDataURL('image/jpeg', 0.85);
     },
     []
   );
@@ -102,18 +104,20 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
     let lastVideoTime = -1;
 
     completedRef.current = false;
-    faceStartTimeRef.current = null;
+    frontalStartTimeRef.current = null;
     setScanProgress(0);
+    setCountdownSec(null);
     setFaceDetected(false);
+    setIsFrontal(false);
     setStatus('loading');
     setErrorDetail(null);
-    setStatusText('스마트폰 카메라와 AI 관상 엔진을 여는 중...');
+    setStatusText('스마트폰 카메라와 얼굴 인식 엔진을 여는 중...');
 
     async function init() {
       try {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
           throw new Error(
-            '이 브라우저 환경에서는 카메라에 접근할 수 없습니다. 스마트폰에서는 HTTPS 주소로 접속하거나 아래 사진 업로드 기능을 이용해 주세요.'
+            '이 브라우저 환경에서는 카메라를 열 수 없습니다. 사진 업로드 기능을 이용해 주세요.'
           );
         }
 
@@ -143,7 +147,7 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
 
         if (!active) return;
         setStatus('ready');
-        setStatusText('실시간 관상 스캔 대기 중');
+        setStatusText('얼굴 인식 대기 중');
 
         const loop = () => {
           if (!active || completedRef.current) return;
@@ -154,7 +158,6 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
             if (v.currentTime !== lastVideoTime) {
               lastVideoTime = v.currentTime;
 
-              // 캔버스 내부 해상도를 비디오 표시 영역에 맞춰 동기화
               const rect = canvas.getBoundingClientRect();
               const dpr = Math.min(window.devicePixelRatio || 1, 2);
               const cw = Math.max(1, Math.round(rect.width * dpr));
@@ -168,14 +171,11 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
               const now = performance.now();
               const result = landmarker.detectForVideo(v, now);
 
-              if (
-                result.faceLandmarks &&
-                result.faceLandmarks.length > 0 &&
-                ctx
-              ) {
+              if (result.faceLandmarks && result.faceLandmarks.length > 0 && ctx) {
                 const landmarks = result.faceLandmarks[0];
                 const blendshapes = result.faceBlendshapes?.[0]?.categories;
 
+                const frontalCheck = checkIsFaceFrontal(landmarks);
                 const metrics = extractFaceMetrics(
                   landmarks,
                   blendshapes,
@@ -183,64 +183,77 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
                   v.videoHeight
                 );
                 latestMetricsRef.current = metrics;
-                setLiveMetrics(metrics);
                 setFaceDetected(true);
+                setLiveSmile(metrics.smileScore);
+                setLiveVitality(metrics.vitalityScore);
 
-                // 자동 스캔 진행률 업데이트
-                if (faceStartTimeRef.current === null) {
-                  faceStartTimeRef.current = now;
-                }
-                const elapsed = now - faceStartTimeRef.current;
-                const progress = Math.min(1, elapsed / SCAN_HOLD_MS);
-                setScanProgress(progress);
+                if (frontalCheck.isFrontal) {
+                  // 정면이 정확하게 포착되었을 때 3초 타이머 동작
+                  setIsFrontal(true);
+                  if (frontalStartTimeRef.current === null) {
+                    frontalStartTimeRef.current = now;
+                  }
+                  const elapsed = now - frontalStartTimeRef.current;
+                  const progress = Math.min(1, elapsed / SCAN_DURATION_MS);
+                  const remaining = Math.max(1, Math.ceil((SCAN_DURATION_MS - elapsed) / 1000));
 
-                // 실시간 재미 피드백 문구 교체 (1.1초 간격)
-                if (now - lastCommentaryTimeRef.current > 1100) {
-                  lastCommentaryTimeRef.current = now;
-                  const lines = generateLiveCommentary(metrics);
-                  const msg = lines[commentaryIndexRef.current % lines.length];
-                  commentaryIndexRef.current += 1;
-                  setCommentary(msg);
-                }
+                  setScanProgress(progress);
+                  setCountdownSec(remaining);
+                  setGuideMessage(`정면 포착! ${remaining}초간 가만히 유지해 주세요 ✨`);
 
-                // 비디오 object-fit: cover 오프셋 보정해 랜드마크 정합성 높이기
-                const videoAspect = v.videoWidth / v.videoHeight;
-                const canvasAspect = cw / ch;
-                let drawW = cw;
-                let drawH = ch;
-                let offsetX = 0;
-                let offsetY = 0;
-                if (videoAspect > canvasAspect) {
-                  drawH = ch;
-                  drawW = ch * videoAspect;
-                  offsetX = (cw - drawW) / 2;
+                  // 비디오 object-fit: cover 보정
+                  const videoAspect = v.videoWidth / v.videoHeight;
+                  const canvasAspect = cw / ch;
+                  let drawW = cw;
+                  let drawH = ch;
+                  let offsetX = 0;
+                  let offsetY = 0;
+                  if (videoAspect > canvasAspect) {
+                    drawH = ch;
+                    drawW = ch * videoAspect;
+                    offsetX = (cw - drawW) / 2;
+                  } else {
+                    drawW = cw;
+                    drawH = cw / videoAspect;
+                    offsetY = (ch - drawH) / 2;
+                  }
+
+                  ctx.clearRect(0, 0, cw, ch);
+                  ctx.save();
+                  ctx.translate(offsetX, offsetY);
+                  drawMysticalOverlay(
+                    ctx,
+                    landmarks,
+                    drawW,
+                    drawH,
+                    progress,
+                    true,
+                    facingMode === 'user'
+                  );
+                  ctx.restore();
+
+                  if (progress >= 1) {
+                    finalizeScan(metrics);
+                    return;
+                  }
                 } else {
-                  drawW = cw;
-                  drawH = cw / videoAspect;
-                  offsetY = (ch - drawH) / 2;
-                }
+                  // 정면을 벗어나면 타이머 리셋 및 안내
+                  frontalStartTimeRef.current = null;
+                  setIsFrontal(false);
+                  setScanProgress(0);
+                  setCountdownSec(null);
+                  setGuideMessage(frontalCheck.message);
 
-                ctx.clearRect(0, 0, cw, ch);
-                ctx.save();
-                ctx.translate(offsetX, offsetY);
-                drawMysticalOverlay(
-                  ctx,
-                  landmarks,
-                  drawW,
-                  drawH,
-                  progress,
-                  facingMode === 'user'
-                );
-                ctx.restore();
-
-                if (progress >= 1) {
-                  finalizeScan(metrics);
-                  return;
+                  if (ctx) ctx.clearRect(0, 0, cw, ch);
                 }
               } else {
-                faceStartTimeRef.current = null;
+                // 얼굴 미인식
+                frontalStartTimeRef.current = null;
                 setScanProgress(0);
+                setCountdownSec(null);
                 setFaceDetected(false);
+                setIsFrontal(false);
+                setGuideMessage('화면 중앙 가이드 안에 얼굴을 맞춰주세요');
                 if (ctx) ctx.clearRect(0, 0, cw, ch);
               }
             }
@@ -272,12 +285,6 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
     };
   }, [facingMode, finalizeScan]);
 
-  const handleManualCapture = () => {
-    if (latestMetricsRef.current) {
-      finalizeScan(latestMetricsRef.current);
-    }
-  };
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -295,13 +302,18 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
           justifyContent: 'space-between',
         }}
       >
-        <button type="button" className="btn-ghost" onClick={onCancel} style={{ padding: '8px 12px' }}>
+        <button
+          type="button"
+          className="btn-ghost"
+          onClick={onCancel}
+          style={{ padding: '8px 12px' }}
+        >
           <ArrowLeft size={16} />
           <span>뒤로</span>
         </button>
 
         <span style={{ fontSize: 13, color: 'var(--gold-light)', fontWeight: 600 }}>
-          1단계 · 실시간 얼굴 특징 추출
+          {userName ? `${userName}님의 관상 스캔` : '얼굴 관상 스캔'}
         </span>
 
         <button
@@ -310,7 +322,7 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
           onClick={() =>
             setFacingMode((prev) => (prev === 'user' ? 'environment' : 'user'))
           }
-          aria-label="전면/후면 카메라 전환"
+          aria-label="카메라 전환"
           title="카메라 전환"
         >
           <SwitchCamera size={18} />
@@ -327,37 +339,88 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
         />
         <canvas ref={canvasRef} className="camera-canvas" />
 
-        {status === 'ready' && !faceDetected && (
+        {/* 정면 아닐 때 타원 가이드 */}
+        {status === 'ready' && !isFrontal && (
           <div className="camera-guide-oval">
             <div className="guide-oval-shape" />
           </div>
         )}
 
+        {/* 상단 상태 뱃지 */}
         <div className="camera-hud-top">
           <div className="status-pill">
-            <span className={`live-dot ${faceDetected ? '' : 'warn'}`} />
+            <span className={`live-dot ${isFrontal ? '' : 'warn'}`} />
             <span>
               {status === 'loading'
-                ? 'AI 로딩 중'
+                ? '준비 중...'
+                : isFrontal
+                ? '정면 포착 · 스캔 중'
                 : faceDetected
-                ? `관상 스캔 중 ${Math.round(scanProgress * 100)}%`
+                ? '정면을 바라봐 주세요'
                 : '얼굴을 찾는 중...'}
             </span>
           </div>
 
-          {liveMetrics && faceDetected && (
-            <div className="status-pill">
-              <span>{liveMetrics.faceShape}</span>
+          {isFrontal && (
+            <div className="status-pill" style={{ color: '#34d399', borderColor: '#34d399' }}>
+              <CheckCircle2 size={13} />
+              <span>정면 일치</span>
             </div>
           )}
         </div>
 
+        {/* 3초 카운트다운 중앙 오버레이 */}
+        {isFrontal && countdownSec !== null && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              pointerEvents: 'none',
+              zIndex: 15,
+            }}
+          >
+            <div
+              style={{
+                width: 96,
+                height: 96,
+                borderRadius: '50%',
+                background: 'rgba(11, 13, 23, 0.75)',
+                border: '3px solid #fde68a',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 0 24px rgba(253, 230, 138, 0.45)',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 38,
+                  fontWeight: 800,
+                  color: '#fef08a',
+                  lineHeight: 1,
+                }}
+              >
+                {countdownSec}
+              </span>
+              <span style={{ fontSize: 11, color: 'var(--gold-light)', marginTop: 2 }}>
+                초 남음
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* 로딩 상태 화면 */}
         {status === 'loading' && (
           <div
             style={{
               position: 'absolute',
               inset: 0,
-              background: 'rgba(9, 11, 20, 0.85)',
+              background: 'rgba(9, 11, 20, 0.88)',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -367,16 +430,17 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
               textAlign: 'center',
             }}
           >
-            <div className="spinner-oracle" style={{ width: 64, height: 64 }} />
+            <div className="spinner-oracle" style={{ width: 56, height: 56 }} />
             <strong style={{ color: 'var(--gold-light)', fontSize: 15 }}>
               {statusText}
             </strong>
             <span style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
-              최초 1회 Google MediaPipe 모델을 불러옵니다 (약 2~4초 소요)
+              잠시만 기다려 주세요 (2~3초 소요)
             </span>
           </div>
         )}
 
+        {/* 카메라 에러 화면 */}
         {status === 'error' && (
           <div
             style={{
@@ -392,8 +456,8 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
               textAlign: 'center',
             }}
           >
-            <AlertTriangle size={38} color="#fbbf24" />
-            <strong style={{ fontSize: 16 }}>카메라를 시작할 수 없습니다</strong>
+            <AlertTriangle size={36} color="#fbbf24" />
+            <strong style={{ fontSize: 16 }}>카메라를 열 수 없습니다</strong>
             <p
               style={{
                 margin: 0,
@@ -423,19 +487,20 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
             </button>
             <button type="button" className="btn-secondary" onClick={onTryDemo}>
               <Wand2 size={16} />
-              <span>샘플 관상으로 바로 체험하기</span>
+              <span>샘플 관상으로 체험해보기</span>
             </button>
           </div>
         )}
 
+        {/* 하단 실시간 안내 말풍선 */}
         {status === 'ready' && (
           <div className="commentary-bubble">
-            <p>{commentary}</p>
+            <p style={{ textAlign: 'center', fontWeight: 600 }}>{guideMessage}</p>
           </div>
         )}
       </div>
 
-      {/* 스캔 진행 바 */}
+      {/* 3초 진행 바 */}
       <div className="scan-progress-track">
         <div
           className="scan-progress-fill"
@@ -443,43 +508,21 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
         />
       </div>
 
-      {/* 실시간 추출 수치 카드 */}
-      <div className="live-metrics-bar">
+      {/* 실시간 수치 칩 (미소, 눈빛) */}
+      <div className="live-metrics-bar" style={{ gridTemplateColumns: '1fr 1fr' }}>
         <div className="metric-chip">
-          <span className="metric-chip-label">미소 지수</span>
+          <span className="metric-chip-label">오늘의 미소 지수</span>
           <span className="metric-chip-val">
-            {liveMetrics && faceDetected ? `${liveMetrics.smileScore}%` : '--'}
+            {liveSmile !== null && faceDetected ? `${liveSmile}%` : '--'}
           </span>
         </div>
         <div className="metric-chip">
-          <span className="metric-chip-label">눈꼬리 각도</span>
+          <span className="metric-chip-label">표정 활력도</span>
           <span className="metric-chip-val">
-            {liveMetrics && faceDetected
-              ? `${liveMetrics.eyeTiltDeg > 0 ? '+' : ''}${liveMetrics.eyeTiltDeg}°`
-              : '--'}
-          </span>
-        </div>
-        <div className="metric-chip">
-          <span className="metric-chip-label">재백궁 기운</span>
-          <span className="metric-chip-val">
-            {liveMetrics && faceDetected ? `${liveMetrics.wealthZoneScore}점` : '--'}
+            {liveVitality !== null && faceDetected ? `${liveVitality}%` : '--'}
           </span>
         </div>
       </div>
-
-      <button
-        type="button"
-        className="btn-gold"
-        onClick={handleManualCapture}
-        disabled={!faceDetected || status !== 'ready'}
-      >
-        <Sparkles size={19} />
-        <span>
-          {faceDetected
-            ? '지금 바로 오늘의 운세 풀이 보기'
-            : '얼굴이 인식되면 자동으로 스캔됩니다'}
-        </span>
-      </button>
     </section>
   );
 };

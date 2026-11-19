@@ -1,9 +1,10 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import { Settings, Sparkles } from 'lucide-react';
 import {
   AppSettings,
   FaceMetrics,
   FortuneResultData,
+  UserProfile,
 } from './types/fortune';
 import { getMyeongriDay } from './lib/myeongri';
 import {
@@ -20,6 +21,7 @@ import { SettingsModal } from './components/SettingsModal';
 type AppStep = 'landing' | 'scanning' | 'generating' | 'result';
 
 const SETTINGS_KEY = 'gwansang_settings_v1';
+const USER_PROFILE_KEY = 'gwansang_user_profile_v1';
 
 function loadSettings(): AppSettings {
   try {
@@ -36,7 +38,7 @@ function loadSettings(): AppSettings {
       };
     }
   } catch {
-    // localStorage 접근 불가 시 기본값 사용
+    // ignore
   }
   return {
     engine: 'local',
@@ -45,8 +47,27 @@ function loadSettings(): AppSettings {
   };
 }
 
+function loadUserProfile(): UserProfile {
+  try {
+    const raw = localStorage.getItem(USER_PROFILE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        name: typeof parsed.name === 'string' ? parsed.name : '',
+        birthDate: typeof parsed.birthDate === 'string' ? parsed.birthDate : '',
+      };
+    }
+  } catch {
+    // ignore
+  }
+  return {
+    name: '',
+    birthDate: '',
+  };
+}
+
 function createImageThumbnail(img: HTMLImageElement): string | undefined {
-  const size = 240;
+  const size = 260;
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
@@ -56,39 +77,47 @@ function createImageThumbnail(img: HTMLImageElement): string | undefined {
   const sx = (img.naturalWidth - minSide) / 2;
   const sy = (img.naturalHeight - minSide) / 2;
   ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
-  return canvas.toDataURL('image/jpeg', 0.82);
+  return canvas.toDataURL('image/jpeg', 0.85);
 }
 
 export default function App() {
   const myeongri = useMemo(() => getMyeongriDay(new Date()), []);
   const [step, setStep] = useState<AppStep>('landing');
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
+  const [user, setUser] = useState<UserProfile>(() => loadUserProfile());
   const [showSettings, setShowSettings] = useState(false);
 
-  const [pendingMetrics, setPendingMetrics] = useState<FaceMetrics | null>(null);
   const [fortune, setFortune] = useState<FortuneResultData | null>(null);
   const [isPhotoAnalyzing, setIsPhotoAnalyzing] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
+
+  // 성명 / 생년월일 변경 시 localStorage에 저장
+  const handleUserChange = (next: UserProfile) => {
+    setUser(next);
+    try {
+      localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(next));
+    } catch {
+      // ignore
+    }
+  };
 
   const handleSaveSettings = (next: AppSettings) => {
     setSettings(next);
     try {
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
     } catch {
-      // ignore storage errors
+      // ignore
     }
   };
 
   const runFortuneGeneration = useCallback(
     async (metrics: FaceMetrics) => {
-      setPendingMetrics(metrics);
       setStep('generating');
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
-      // 몰입감 있는 관상 풀이 연출(최소 1.1초) + 실제 운세 생성
-      const minDelay = new Promise((r) => setTimeout(r, 1150));
+      const minDelay = new Promise((r) => setTimeout(r, 1200));
       const [result] = await Promise.all([
-        generateFortune(metrics, myeongri, settings),
+        generateFortune(user, metrics, myeongri, settings),
         minDelay,
       ]);
 
@@ -96,7 +125,7 @@ export default function App() {
       setStep('result');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     },
-    [myeongri, settings]
+    [myeongri, settings, user]
   );
 
   const handleUploadPhoto = useCallback(
@@ -117,9 +146,7 @@ export default function App() {
         URL.revokeObjectURL(objectUrl);
 
         if (!result.faceLandmarks || result.faceLandmarks.length === 0) {
-          setPhotoError(
-            '사진에서 정면 얼굴을 찾지 못했어요. 밝은 곳에서 찍은 정면 셀카로 다시 시도해 주세요!'
-          );
+          setPhotoError('사진에서 얼굴을 찾지 못했어요. 정면이 잘 나온 사진으로 다시 올려주세요.');
           setStep('landing');
           return;
         }
@@ -153,6 +180,10 @@ export default function App() {
     void runFortuneGeneration(demoMetrics);
   }, [runFortuneGeneration]);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [step]);
+
   return (
     <div className="app-shell">
       <header className="top-bar">
@@ -165,15 +196,15 @@ export default function App() {
           }}
         >
           <Sparkles size={18} color="#f5d882" />
-          <span>천기누설 · AI 관상</span>
+          <span>매일 관상 운세</span>
         </button>
 
         <button
           type="button"
           className="icon-btn"
           onClick={() => setShowSettings(true)}
-          aria-label="운세 엔진 설정"
-          title="운세 생성 엔진 설정"
+          aria-label="설정"
+          title="설정"
         >
           <Settings size={18} />
         </button>
@@ -182,6 +213,8 @@ export default function App() {
       {step === 'landing' && (
         <LandingView
           myeongri={myeongri}
+          user={user}
+          onChangeUser={handleUserChange}
           onStartCamera={() => {
             setPhotoError(null);
             setStep('scanning');
@@ -195,6 +228,7 @@ export default function App() {
 
       {step === 'scanning' && (
         <CameraScanner
+          userName={user.name}
           onComplete={runFortuneGeneration}
           onCancel={() => setStep('landing')}
           onUploadPhoto={handleUploadPhoto}
@@ -209,12 +243,12 @@ export default function App() {
             <h2
               style={{
                 fontFamily: 'var(--font-serif)',
-                fontSize: 22,
+                fontSize: 21,
                 color: 'var(--gold-light)',
                 margin: '0 0 8px',
               }}
             >
-              천기(天機)를 조합하는 중...
+              오늘의 운세를 조합하고 있습니다...
             </h2>
             <p
               style={{
@@ -224,9 +258,10 @@ export default function App() {
                 color: 'var(--text-secondary)',
               }}
             >
-              {pendingMetrics
-                ? `추출된 '${pendingMetrics.faceShape}' · 미소 지수 ${pendingMetrics.smileScore}% 데이터와 오늘의 ${myeongri.dayGanji}(${myeongri.element}) 기운을 엮고 있습니다.`
-                : '전통 관상학과 명리학을 융합해 오늘의 운세를 풀고 있습니다.'}
+              {user.name ? `${user.name}님의 생년월일과 ` : ''}
+              오늘 스캔된 얼굴 표정을 분석해
+              <br />
+              사업, 재물, 연애, 학업 운세를 정리하고 있습니다.
             </p>
           </div>
         </main>

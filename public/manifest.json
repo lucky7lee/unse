@@ -1,7 +1,7 @@
 {
-  "name": "천기누설 · AI 관상 운세",
-  "short_name": "AI관상운세",
-  "description": "실시간 얼굴 스캔으로 보는 전통 관상학 & 명리학 오늘의 운세",
+  "name": "매일 관상 운세",
+  "short_name": "매일관상운세",
+  "description": "오늘의 얼굴 상태와 생년월일로 보는 사업, 재물, 연애, 학업 운세",
   "start_url": "./",
   "display": "standalone",
   "orientation": "portrait",
