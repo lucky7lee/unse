@@ -7,7 +7,6 @@ import {
   GraduationCap,
   Smile,
   Sparkles,
-  User,
   Activity,
   Home,
   Compass,
@@ -47,14 +46,16 @@ export const FortuneResult: React.FC<FortuneResultProps> = ({
   return (
     <main className="result-wrap" style={{ gap: 14 }}>
       {/* 1. 상단 사용자 프로필 & 오늘 운세 메인 카드 */}
-      <section className="gold-card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <section className="gold-card" style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '18px 16px' }}>
+        {/* 상단 프로필 및 일진 바 */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+            paddingBottom: 10,
             gap: 8,
-            flexWrap: 'wrap',
           }}
         >
           <div
@@ -62,13 +63,15 @@ export const FortuneResult: React.FC<FortuneResultProps> = ({
               display: 'inline-flex',
               alignItems: 'center',
               gap: 6,
-              fontSize: 12.5,
+              fontSize: 13,
               color: 'var(--gold-light)',
             }}
           >
-            <User size={14} />
-            <strong>{user.name}님</strong>
-            <span>({user.gender || '남성'} · {zodiac})</span>
+            <Sparkles size={14} color="#fde68a" />
+            <strong style={{ fontSize: 14.5, color: '#ffffff' }}>{user.name}님</strong>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+              ({user.gender || '남성'} · {zodiac})
+            </span>
           </div>
 
           <span
@@ -76,70 +79,178 @@ export const FortuneResult: React.FC<FortuneResultProps> = ({
               fontSize: 11.5,
               padding: '3px 10px',
               borderRadius: 999,
-              background: 'rgba(255, 255, 255, 0.08)',
-              color: 'var(--text-secondary)',
+              background: 'rgba(255, 255, 255, 0.07)',
+              border: '1px solid rgba(212, 175, 55, 0.25)',
+              color: 'var(--gold-light)',
+              flexShrink: 0,
             }}
           >
-            {myeongri.dateText} {isNoScan ? '· 사주 분석' : '· 관상 분석'}
+            {myeongri.dateText} {isNoScan ? '· 사주' : '· 관상'}
           </span>
         </div>
 
-        <div className="score-header">
-          <div className="score-ring">
-            <span className="score-num">{fortune.overallScore}</span>
-            <span className="score-label">오늘 운세</span>
+        {/* 중앙 비주얼: 사진(또는 사주엠블럼) & 종합 점수 듀얼 배칭 */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 20,
+            padding: '4px 0 8px',
+          }}
+        >
+          {/* 얼굴 스냅샷 또는 사주 엠블럼 */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+            {!isNoScan && metrics.snapshotDataUrl ? (
+              <img
+                src={metrics.snapshotDataUrl}
+                alt="스캔된 얼굴"
+                style={{
+                  width: 74,
+                  height: 74,
+                  borderRadius: '50%',
+                  objectFit: 'cover',
+                  border: '2.5px solid var(--gold-main)',
+                  boxShadow: '0 0 18px rgba(212, 175, 55, 0.35)',
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: 74,
+                  height: 74,
+                  borderRadius: '50%',
+                  background: 'radial-gradient(circle, rgba(212, 175, 55, 0.25), rgba(15, 18, 32, 0.95))',
+                  border: '2.5px solid var(--gold-main)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 0 18px rgba(212, 175, 55, 0.35)',
+                }}
+              >
+                <Compass size={30} color="#fde68a" />
+              </div>
+            )}
+            <span style={{ fontSize: 11, color: 'var(--gold-light)' }}>
+              {isNoScan ? '사주 명리' : '오늘의 관상'}
+            </span>
           </div>
 
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <h1 className="result-title" style={{ fontSize: 21 }}>
-              {fortune.title}
-            </h1>
-            <p className="result-sub" style={{ fontSize: 13 }}>
-              {fortune.subtitle}
-            </p>
-          </div>
+          {/* 중앙 연결 장식선 */}
+          <div
+            style={{
+              width: 1,
+              height: 52,
+              background: 'linear-gradient(180deg, rgba(212, 175, 55, 0.05), rgba(212, 175, 55, 0.35), rgba(212, 175, 55, 0.05))',
+            }}
+          />
 
-          {!isNoScan && metrics.snapshotDataUrl ? (
-            <img
-              src={metrics.snapshotDataUrl}
-              alt="스캔된 얼굴"
-              className="snapshot-avatar"
-            />
-          ) : (
+          {/* 종합 점수 원형 링 */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
             <div
               style={{
-                width: 56,
-                height: 56,
-                borderRadius: 16,
-                background: 'radial-gradient(circle, rgba(212, 175, 55, 0.25), rgba(15, 18, 32, 0.95))',
-                border: '1.5px solid var(--border-gold)',
+                width: 74,
+                height: 74,
+                borderRadius: '50%',
+                background: 'radial-gradient(circle, rgba(212, 175, 55, 0.2), rgba(15, 18, 32, 0.95))',
+                border: '2.5px solid var(--gold-main)',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                flexShrink: 0,
+                boxShadow: '0 0 18px rgba(212, 175, 55, 0.35)',
               }}
             >
-              <Compass size={24} color="#fde68a" />
-              <span style={{ fontSize: 9.5, color: 'var(--gold-light)', marginTop: 2 }}>
-                사주명리
+              <span
+                style={{
+                  fontSize: 28,
+                  fontWeight: 800,
+                  color: '#fef08a',
+                  lineHeight: 1,
+                }}
+              >
+                {fortune.overallScore}
+              </span>
+              <span
+                style={{
+                  fontSize: 10,
+                  color: 'var(--gold-light)',
+                  marginTop: 3,
+                  fontWeight: 600,
+                }}
+              >
+                오늘 운세
               </span>
             </div>
-          )}
+            <span style={{ fontSize: 11, color: 'var(--gold-light)' }}>
+              100점 만점
+            </span>
+          </div>
         </div>
 
-        <p
+        {/* 타이틀 및 부제 (중앙 집중 레이아웃) */}
+        <div style={{ textAlign: 'center', padding: '0 4px 4px' }}>
+          <h1
+            style={{
+              fontFamily: 'var(--font-serif)',
+              fontSize: 21,
+              lineHeight: 1.35,
+              color: '#fff9e5',
+              margin: '0 0 6px',
+              textShadow: '0 2px 10px rgba(0, 0, 0, 0.5)',
+            }}
+          >
+            {fortune.title}
+          </h1>
+          <p
+            style={{
+              fontSize: 12.8,
+              color: 'var(--text-secondary)',
+              margin: 0,
+              lineHeight: 1.45,
+            }}
+          >
+            {fortune.subtitle}
+          </p>
+        </div>
+
+        {/* 총운 분석 내용 박스 */}
+        <div
           style={{
-            margin: 0,
-            fontSize: 14,
-            lineHeight: 1.7,
-            color: '#ebe7dc',
-            paddingTop: 10,
-            borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+            background: 'rgba(9, 11, 20, 0.55)',
+            border: '1px solid rgba(212, 175, 55, 0.2)',
+            borderRadius: 14,
+            padding: '13px 15px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
           }}
         >
-          {fortune.overallReading}
-        </p>
+          <div
+            style={{
+              fontSize: 11.5,
+              fontWeight: 700,
+              color: 'var(--gold-light)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+            }}
+          >
+            <span>✦</span>
+            <span>오늘의 총운 풀이</span>
+          </div>
+          <p
+            style={{
+              margin: 0,
+              fontSize: 13.8,
+              lineHeight: 1.72,
+              color: '#f1ede2',
+            }}
+          >
+            {fortune.overallReading}
+          </p>
+        </div>
       </section>
 
       {/* 2. 오늘 얼굴 표정 또는 사주 기운 상태 요약 카드 */}

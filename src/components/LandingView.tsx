@@ -6,6 +6,7 @@ import {
   Sparkles,
   Calendar,
   User,
+  Users,
   Wand2,
   AlertCircle,
 } from 'lucide-react';
@@ -192,6 +193,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
                 gap: 6,
               }}
             >
+              <Users size={15} />
               <span>성별</span>
             </label>
             <select
