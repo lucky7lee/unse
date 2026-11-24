@@ -10,6 +10,7 @@ import {
   User,
   Activity,
   Home,
+  Compass,
 } from 'lucide-react';
 import { FortuneCategory, FortuneResultData } from '../types/fortune';
 
@@ -40,7 +41,8 @@ export const FortuneResult: React.FC<FortuneResultProps> = ({
   onRescan,
   onGoHome,
 }) => {
-  const { user, zodiac, metrics, myeongri } = fortune;
+  const { user, zodiac, metrics, myeongri, scanMode } = fortune;
+  const isNoScan = scanMode === 'no-scan';
 
   return (
     <main className="result-wrap" style={{ gap: 14 }}>
@@ -66,7 +68,7 @@ export const FortuneResult: React.FC<FortuneResultProps> = ({
           >
             <User size={14} />
             <strong>{user.name}님</strong>
-            <span>({zodiac || '오늘의 운세'})</span>
+            <span>({user.gender || '남성'} · {zodiac})</span>
           </div>
 
           <span
@@ -78,7 +80,7 @@ export const FortuneResult: React.FC<FortuneResultProps> = ({
               color: 'var(--text-secondary)',
             }}
           >
-            {myeongri.dateText}
+            {myeongri.dateText} {isNoScan ? '· 사주 분석' : '· 관상 분석'}
           </span>
         </div>
 
@@ -89,7 +91,7 @@ export const FortuneResult: React.FC<FortuneResultProps> = ({
           </div>
 
           <div style={{ flex: 1, minWidth: 0 }}>
-            <h1 className="result-title" style={{ fontSize: 22 }}>
+            <h1 className="result-title" style={{ fontSize: 21 }}>
               {fortune.title}
             </h1>
             <p className="result-sub" style={{ fontSize: 13 }}>
@@ -97,12 +99,32 @@ export const FortuneResult: React.FC<FortuneResultProps> = ({
             </p>
           </div>
 
-          {metrics.snapshotDataUrl && (
+          {!isNoScan && metrics.snapshotDataUrl ? (
             <img
               src={metrics.snapshotDataUrl}
               alt="스캔된 얼굴"
               className="snapshot-avatar"
             />
+          ) : (
+            <div
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 16,
+                background: 'radial-gradient(circle, rgba(212, 175, 55, 0.25), rgba(15, 18, 32, 0.95))',
+                border: '1.5px solid var(--border-gold)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <Compass size={24} color="#fde68a" />
+              <span style={{ fontSize: 9.5, color: 'var(--gold-light)', marginTop: 2 }}>
+                사주명리
+              </span>
+            </div>
           )}
         </div>
 
@@ -120,19 +142,33 @@ export const FortuneResult: React.FC<FortuneResultProps> = ({
         </p>
       </section>
 
-      {/* 2. 오늘 얼굴 표정 & 상태 요약 카드 */}
+      {/* 2. 오늘 얼굴 표정 또는 사주 기운 상태 요약 카드 */}
       <section className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Smile size={16} color="#fde68a" />
+          {isNoScan ? (
+            <Compass size={16} color="#fde68a" />
+          ) : (
+            <Smile size={16} color="#fde68a" />
+          )}
           <strong style={{ fontSize: 14.5, color: 'var(--gold-light)' }}>
-            오늘 스캔된 얼굴 표정 상태
+            {isNoScan ? '오늘의 사주 일진 & 기운 분석' : '오늘 스캔된 얼굴 표정 상태'}
           </strong>
         </div>
 
         <div className="tag-row">
-          <span className="tag-pill">미소 지수 {metrics.smileScore}%</span>
-          <span className="tag-pill">얼굴형 · {metrics.faceShape}</span>
-          <span className="tag-pill">{metrics.expression}</span>
+          {isNoScan ? (
+            <>
+              <span className="tag-pill">일진 · {myeongri.dayGanji}</span>
+              <span className="tag-pill">오행 · {myeongri.element}</span>
+              <span className="tag-pill">에너지 · {myeongri.elementKeyword}</span>
+            </>
+          ) : (
+            <>
+              <span className="tag-pill">미소 지수 {metrics.smileScore}%</span>
+              <span className="tag-pill">얼굴형 · {metrics.faceShape}</span>
+              <span className="tag-pill">{metrics.expression}</span>
+            </>
+          )}
         </div>
 
         <p
@@ -145,6 +181,36 @@ export const FortuneResult: React.FC<FortuneResultProps> = ({
         >
           {fortune.faceReading}
         </p>
+
+        {fortune.faceHighlights && fortune.faceHighlights.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 5,
+              background: 'rgba(9, 11, 20, 0.4)',
+              borderRadius: 12,
+              padding: '10px 12px',
+              marginTop: 2,
+            }}
+          >
+            {fortune.faceHighlights.map((hl, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  gap: 6,
+                  fontSize: 12.5,
+                  lineHeight: 1.5,
+                  color: 'var(--gold-light)',
+                }}
+              >
+                <span>✦</span>
+                <span>{hl}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* 3. 5대 핵심 운세 (사업, 재물, 연애, 학업, 건강) */}
@@ -168,7 +234,7 @@ export const FortuneResult: React.FC<FortuneResultProps> = ({
               <p
                 style={{
                   margin: 0,
-                  fontSize: 13,
+                  fontSize: 13.5,
                   lineHeight: 1.6,
                   color: 'var(--text-secondary)',
                 }}
@@ -224,7 +290,7 @@ export const FortuneResult: React.FC<FortuneResultProps> = ({
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 4 }}>
         <button type="button" className="btn-gold" onClick={onRescan}>
           <RotateCcw size={16} />
-          <span>다시 스캔하기</span>
+          <span>{isNoScan ? '다시 보기' : '다시 스캔하기'}</span>
         </button>
 
         <button type="button" className="btn-secondary" onClick={onGoHome}>

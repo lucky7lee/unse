@@ -23,7 +23,7 @@ interface CameraScannerProps {
   onTryDemo: () => void;
 }
 
-const SCAN_DURATION_MS = 3000; // 정확히 3초 동안 정면 유지
+const SCAN_DURATION_MS = 5000; // 정확히 5초 동안 정면 유지
 
 export const CameraScanner: React.FC<CameraScannerProps> = ({
   userName,
@@ -188,7 +188,7 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
                 setLiveVitality(metrics.vitalityScore);
 
                 if (frontalCheck.isFrontal) {
-                  // 정면이 정확하게 포착되었을 때 3초 타이머 동작
+                  // 정면이 정확하게 포착되었을 때 5초 타이머 동작
                   setIsFrontal(true);
                   if (frontalStartTimeRef.current === null) {
                     frontalStartTimeRef.current = now;
@@ -369,7 +369,7 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
           )}
         </div>
 
-        {/* 3초 카운트다운 중앙 오버레이 */}
+        {/* 5초 카운트다운 중앙 오버레이 */}
         {isFrontal && countdownSec !== null && (
           <div
             style={{

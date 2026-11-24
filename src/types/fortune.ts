@@ -59,6 +59,7 @@ export interface FaceMetrics {
   capturedAt: string;
   snapshotDataUrl?: string;
   isDemo?: boolean;
+  isNoScan?: boolean; // 얼굴 스캔 없는 사주 운세 모드 여부
 }
 
 export type FiveElement = '목(木)' | '화(火)' | '토(土)' | '금(金)' | '수(水)';
@@ -77,8 +78,11 @@ export interface MyeongriDay {
   daySeed: number;
 }
 
+export type GenderType = '남성' | '여성';
+
 export interface UserProfile {
   name: string;
+  gender: GenderType;
   birthDate: string; // YYYY-MM-DD
 }
 
@@ -100,8 +104,8 @@ export interface FortuneResultData {
   subtitle: string;
   overallScore: number;
   overallReading: string; // 오늘의 종합 운세
-  faceReading: string; // 오늘의 얼굴 상태 요약
-  faceHighlights: string[]; // 얼굴 분석 핵심 3가지
+  faceReading: string; // 오늘의 얼굴/기운 상태 요약
+  faceHighlights: string[]; // 분석 핵심 3가지
   categories: FortuneCategory[]; // 사업, 재물, 연애, 학업, 건강
   lucky: {
     color: string;
@@ -114,6 +118,7 @@ export interface FortuneResultData {
   source: 'local-engine' | 'gemini-api';
   myeongri: MyeongriDay;
   metrics: FaceMetrics;
+  scanMode: 'camera' | 'photo' | 'no-scan';
 }
 
 export interface AppSettings {

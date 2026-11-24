@@ -8,11 +8,10 @@ import {
 } from './types/fortune';
 import { getMyeongriDay } from './lib/myeongri';
 import {
-  createDemoFaceMetrics,
   extractFaceMetrics,
   getImageFaceLandmarker,
 } from './lib/faceAnalyzer';
-import { generateFortune } from './lib/fortuneGenerator';
+import { generateFortune, createNoScanMetrics } from './lib/fortuneGenerator';
 import { LandingView } from './components/LandingView';
 import { CameraScanner } from './components/CameraScanner';
 import { FortuneResult } from './components/FortuneResult';
@@ -54,6 +53,7 @@ function loadUserProfile(): UserProfile {
       const parsed = JSON.parse(raw);
       return {
         name: typeof parsed.name === 'string' ? parsed.name : '',
+        gender: parsed.gender === '여성' ? '여성' : '남성',
         birthDate: typeof parsed.birthDate === 'string' ? parsed.birthDate : '',
       };
     }
@@ -62,6 +62,7 @@ function loadUserProfile(): UserProfile {
   }
   return {
     name: '',
+    gender: '남성',
     birthDate: '',
   };
 }
@@ -87,11 +88,12 @@ export default function App() {
   const [user, setUser] = useState<UserProfile>(() => loadUserProfile());
   const [showSettings, setShowSettings] = useState(false);
 
+  const [activeScanMode, setActiveScanMode] = useState<'camera' | 'photo' | 'no-scan'>('camera');
   const [fortune, setFortune] = useState<FortuneResultData | null>(null);
   const [isPhotoAnalyzing, setIsPhotoAnalyzing] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
 
-  // 성명 / 생년월일 변경 시 localStorage에 저장
+  // 성명 / 성별 / 생년월일 변경 시 localStorage에 저장
   const handleUserChange = (next: UserProfile) => {
     setUser(next);
     try {
@@ -111,13 +113,14 @@ export default function App() {
   };
 
   const runFortuneGeneration = useCallback(
-    async (metrics: FaceMetrics) => {
+    async (metrics: FaceMetrics, scanMode: 'camera' | 'photo' | 'no-scan') => {
+      setActiveScanMode(scanMode);
       setStep('generating');
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
       const minDelay = new Promise((r) => setTimeout(r, 1200));
       const [result] = await Promise.all([
-        generateFortune(user, metrics, myeongri, settings),
+        generateFortune(user, metrics, myeongri, settings, scanMode),
         minDelay,
       ]);
 
@@ -126,6 +129,13 @@ export default function App() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     },
     [myeongri, settings, user]
+  );
+
+  const handleCameraComplete = useCallback(
+    (metrics: FaceMetrics) => {
+      void runFortuneGeneration(metrics, 'camera');
+    },
+    [runFortuneGeneration]
   );
 
   const handleUploadPhoto = useCallback(
@@ -159,7 +169,7 @@ export default function App() {
           img.naturalHeight,
           thumb
         );
-        await runFortuneGeneration(metrics);
+        await runFortuneGeneration(metrics, 'photo');
       } catch (err) {
         setPhotoError(
           err instanceof Error
@@ -174,10 +184,11 @@ export default function App() {
     [runFortuneGeneration]
   );
 
-  const handleTryDemo = useCallback(() => {
+  // 스캔없는 운세 핸들러
+  const handleNoScan = useCallback(() => {
     setPhotoError(null);
-    const demoMetrics = createDemoFaceMetrics();
-    void runFortuneGeneration(demoMetrics);
+    const noScanMetrics = createNoScanMetrics();
+    void runFortuneGeneration(noScanMetrics, 'no-scan');
   }, [runFortuneGeneration]);
 
   useEffect(() => {
@@ -220,7 +231,7 @@ export default function App() {
             setStep('scanning');
           }}
           onUploadPhoto={handleUploadPhoto}
-          onTryDemo={handleTryDemo}
+          onNoScan={handleNoScan}
           isPhotoAnalyzing={isPhotoAnalyzing}
           photoError={photoError}
         />
@@ -229,10 +240,10 @@ export default function App() {
       {step === 'scanning' && (
         <CameraScanner
           userName={user.name}
-          onComplete={runFortuneGeneration}
+          onComplete={handleCameraComplete}
           onCancel={() => setStep('landing')}
           onUploadPhoto={handleUploadPhoto}
-          onTryDemo={handleTryDemo}
+          onTryDemo={handleNoScan}
         />
       )}
 
@@ -248,7 +259,7 @@ export default function App() {
                 margin: '0 0 8px',
               }}
             >
-              오늘의 운세를 조합하고 있습니다...
+              오늘의 운세를 정밀 분석하고 있습니다...
             </h2>
             <p
               style={{
@@ -258,10 +269,12 @@ export default function App() {
                 color: 'var(--text-secondary)',
               }}
             >
-              {user.name ? `${user.name}님의 생년월일과 ` : ''}
-              오늘 스캔된 얼굴 표정을 분석해
+              {user.name ? `${user.name}님의 ` : ''}
+              {activeScanMode === 'no-scan'
+                ? '생년월일과 오늘 일진의 사주 명리 궁합을 통해'
+                : '오늘 스캔된 얼굴 상태와 생년월일을 조합해'}
               <br />
-              사업, 재물, 연애, 학업 운세를 정리하고 있습니다.
+              사업, 재물, 연애, 학업, 건강 운세를 풀고 있습니다.
             </p>
           </div>
         </main>
@@ -270,7 +283,7 @@ export default function App() {
       {step === 'result' && fortune && (
         <FortuneResult
           fortune={fortune}
-          onRescan={() => setStep('scanning')}
+          onRescan={() => (activeScanMode === 'no-scan' ? handleNoScan() : setStep('scanning'))}
           onGoHome={() => setStep('landing')}
         />
       )}

@@ -17,7 +17,7 @@ interface LandingViewProps {
   onChangeUser: (next: UserProfile) => void;
   onStartCamera: () => void;
   onUploadPhoto: (file: File) => void;
-  onTryDemo: () => void;
+  onNoScan: () => void;
   isPhotoAnalyzing: boolean;
   photoError: string | null;
 }
@@ -32,7 +32,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
   onChangeUser,
   onStartCamera,
   onUploadPhoto,
-  onTryDemo,
+  onNoScan,
   isPhotoAnalyzing,
   photoError,
 }) => {
@@ -66,6 +66,10 @@ export const LandingView: React.FC<LandingViewProps> = ({
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setValidationError(null);
     onChangeUser({ ...user, name: e.target.value });
+  };
+
+  const handleGenderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    onChangeUser({ ...user, gender: e.target.value as '남성' | '여성' });
   };
 
   const handleBirthChange = (y: string, m: string, d: string) => {
@@ -115,6 +119,10 @@ export const LandingView: React.FC<LandingViewProps> = ({
     });
   };
 
+  const handleNoScanClick = () => {
+    validateAndProceed(onNoScan);
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -144,30 +152,59 @@ export const LandingView: React.FC<LandingViewProps> = ({
 
       {/* 정보 입력 및 스캔 시작 카드 */}
       <div className="gold-card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {/* 성명 입력 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <label
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: 'var(--gold-light)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            <User size={15} />
-            <span>성명 (이름)</span>
-          </label>
-          <input
-            ref={nameInputRef}
-            type="text"
-            className="input-field"
-            placeholder="이름을 입력하세요 (예: 홍길동)"
-            value={user.name}
-            onChange={handleNameChange}
-            maxLength={20}
-          />
+        {/* 성명 & 성별 행 (가로 나란히 배치) */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 96px', gap: 8 }}>
+          {/* 성명 입력 */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: 'var(--gold-light)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <User size={15} />
+              <span>성명 (이름)</span>
+            </label>
+            <input
+              ref={nameInputRef}
+              type="text"
+              className="input-field"
+              placeholder="예: 홍길동"
+              value={user.name}
+              onChange={handleNameChange}
+              maxLength={20}
+            />
+          </div>
+
+          {/* 성별 선택 */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: 'var(--gold-light)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <span>성별</span>
+            </label>
+            <select
+              className="input-field birth-select"
+              value={user.gender || '남성'}
+              onChange={handleGenderChange}
+              aria-label="성별 선택"
+              style={{ padding: '12px 24px 12px 10px', height: '100%' }}
+            >
+              <option value="남성">남성</option>
+              <option value="여성">여성</option>
+            </select>
+          </div>
         </div>
 
         {/* 생년월일 콤보 박스 (년, 월, 일) */}
@@ -302,12 +339,12 @@ export const LandingView: React.FC<LandingViewProps> = ({
           <button
             type="button"
             className="btn-ghost"
-            onClick={onTryDemo}
+            onClick={handleNoScanClick}
             disabled={isPhotoAnalyzing}
             style={{ padding: '12px 10px', fontSize: 13.5 }}
           >
             <Wand2 size={15} />
-            <span>샘플 체험</span>
+            <span>스캔없는 운세</span>
           </button>
         </div>
       </div>
