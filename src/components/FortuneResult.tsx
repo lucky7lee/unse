@@ -10,7 +10,6 @@ import {
   Activity,
   Home,
   Compass,
-  ZoomIn,
 } from 'lucide-react';
 import { FortuneCategory, FortuneResultData } from '../types/fortune';
 
@@ -44,20 +43,10 @@ export const FortuneResult: React.FC<FortuneResultProps> = ({
   const { user, zodiac, metrics, myeongri, scanMode } = fortune;
   const isNoScan = scanMode === 'no-scan';
 
-  // 두 손가락 핀치 줌(Pinch-to-zoom) 글자 크기 동적 조절 상태
+  // 두 손가락 핀치 줌(Pinch-to-zoom) 글자 크기 동적 조절 상태 (안내 UI 없이 제스처로만 동작)
   const [fontScale, setFontScale] = useState<number>(1.0);
-  const [showScaleIndicator, setShowScaleIndicator] = useState<boolean>(false);
   const pinchStartDistRef = useRef<number | null>(null);
   const pinchStartScaleRef = useRef<number>(1.0);
-  const indicatorTimerRef = useRef<number | null>(null);
-
-  const triggerIndicator = () => {
-    setShowScaleIndicator(true);
-    if (indicatorTimerRef.current) clearTimeout(indicatorTimerRef.current);
-    indicatorTimerRef.current = window.setTimeout(() => {
-      setShowScaleIndicator(false);
-    }, 1500);
-  };
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
@@ -80,7 +69,6 @@ export const FortuneResult: React.FC<FortuneResultProps> = ({
       // 0.85배(85%)부터 1.7배(170%)까지 유연하게 글자 크기 확대/축소
       const nextScale = Math.min(1.7, Math.max(0.85, pinchStartScaleRef.current * ratio));
       setFontScale(Number(nextScale.toFixed(2)));
-      triggerIndicator();
     }
   };
 
@@ -88,19 +76,6 @@ export const FortuneResult: React.FC<FortuneResultProps> = ({
     if (e.touches.length < 2) {
       pinchStartDistRef.current = null;
     }
-  };
-
-  const handleScaleStep = (delta: number) => {
-    setFontScale((prev) => {
-      const next = Math.min(1.7, Math.max(0.85, Math.round((prev + delta) * 10) / 10));
-      return next;
-    });
-    triggerIndicator();
-  };
-
-  const handleResetScale = () => {
-    setFontScale(1.0);
-    triggerIndicator();
   };
 
   return (
@@ -116,54 +91,6 @@ export const FortuneResult: React.FC<FortuneResultProps> = ({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* 글자 크기 변경 시 중앙 플로팅 뱃지 */}
-      {showScaleIndicator && (
-        <div className="result-scale-indicator">
-          <ZoomIn size={16} />
-          <span>글자 크기 {Math.round(fontScale * 100)}%</span>
-        </div>
-      )}
-
-      {/* 글자 크기 조절 안내 & 퀵 버튼 (두 손가락 제스처 지원) */}
-      <div className="font-size-ctrl-bar">
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <ZoomIn size={14} color="var(--gold-light)" />
-          <span>두 손가락을 벌려 글자를 크게 볼 수 있어요</span>
-        </span>
-        <div className="font-size-btn-group">
-          <button
-            type="button"
-            className="font-size-btn"
-            onClick={() => handleScaleStep(-0.1)}
-            aria-label="글자 작게"
-            title="글자 작게"
-          >
-            가-
-          </button>
-          <button
-            type="button"
-            className="font-size-btn"
-            onClick={handleResetScale}
-            style={{
-              fontWeight: fontScale !== 1.0 ? 700 : 500,
-              minWidth: 44,
-              textAlign: 'center',
-            }}
-            title="기본 크기로 복원"
-          >
-            {Math.round(fontScale * 100)}%
-          </button>
-          <button
-            type="button"
-            className="font-size-btn"
-            onClick={() => handleScaleStep(0.1)}
-            aria-label="글자 크게"
-            title="글자 크게"
-          >
-            가+
-          </button>
-        </div>
-      </div>
       {/* 1. 상단 사용자 프로필 & 오늘 운세 메인 카드 */}
       <section className="gold-card" style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '18px 16px' }}>
         {/* 상단 프로필 및 일진 바 */}
