@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import {
   RotateCcw,
   Briefcase,
@@ -10,6 +10,7 @@ import {
   Activity,
   Home,
   Compass,
+  ZoomIn,
 } from 'lucide-react';
 import { FortuneCategory, FortuneResultData } from '../types/fortune';
 
@@ -43,8 +44,126 @@ export const FortuneResult: React.FC<FortuneResultProps> = ({
   const { user, zodiac, metrics, myeongri, scanMode } = fortune;
   const isNoScan = scanMode === 'no-scan';
 
+  // 두 손가락 핀치 줌(Pinch-to-zoom) 글자 크기 동적 조절 상태
+  const [fontScale, setFontScale] = useState<number>(1.0);
+  const [showScaleIndicator, setShowScaleIndicator] = useState<boolean>(false);
+  const pinchStartDistRef = useRef<number | null>(null);
+  const pinchStartScaleRef = useRef<number>(1.0);
+  const indicatorTimerRef = useRef<number | null>(null);
+
+  const triggerIndicator = () => {
+    setShowScaleIndicator(true);
+    if (indicatorTimerRef.current) clearTimeout(indicatorTimerRef.current);
+    indicatorTimerRef.current = window.setTimeout(() => {
+      setShowScaleIndicator(false);
+    }, 1500);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      pinchStartDistRef.current = dist;
+      pinchStartScaleRef.current = fontScale;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && pinchStartDistRef.current !== null && pinchStartDistRef.current > 10) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const ratio = dist / pinchStartDistRef.current;
+      // 0.85배(85%)부터 1.7배(170%)까지 유연하게 글자 크기 확대/축소
+      const nextScale = Math.min(1.7, Math.max(0.85, pinchStartScaleRef.current * ratio));
+      setFontScale(Number(nextScale.toFixed(2)));
+      triggerIndicator();
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (e.touches.length < 2) {
+      pinchStartDistRef.current = null;
+    }
+  };
+
+  const handleScaleStep = (delta: number) => {
+    setFontScale((prev) => {
+      const next = Math.min(1.7, Math.max(0.85, Math.round((prev + delta) * 10) / 10));
+      return next;
+    });
+    triggerIndicator();
+  };
+
+  const handleResetScale = () => {
+    setFontScale(1.0);
+    triggerIndicator();
+  };
+
   return (
-    <main className="result-wrap" style={{ gap: 14 }}>
+    <main
+      className="result-wrap"
+      style={
+        {
+          gap: 14,
+          '--fortune-font-scale': fontScale,
+        } as React.CSSProperties
+      }
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* 글자 크기 변경 시 중앙 플로팅 뱃지 */}
+      {showScaleIndicator && (
+        <div className="result-scale-indicator">
+          <ZoomIn size={16} />
+          <span>글자 크기 {Math.round(fontScale * 100)}%</span>
+        </div>
+      )}
+
+      {/* 글자 크기 조절 안내 & 퀵 버튼 (두 손가락 제스처 지원) */}
+      <div className="font-size-ctrl-bar">
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <ZoomIn size={14} color="var(--gold-light)" />
+          <span>두 손가락을 벌려 글자를 크게 볼 수 있어요</span>
+        </span>
+        <div className="font-size-btn-group">
+          <button
+            type="button"
+            className="font-size-btn"
+            onClick={() => handleScaleStep(-0.1)}
+            aria-label="글자 작게"
+            title="글자 작게"
+          >
+            가-
+          </button>
+          <button
+            type="button"
+            className="font-size-btn"
+            onClick={handleResetScale}
+            style={{
+              fontWeight: fontScale !== 1.0 ? 700 : 500,
+              minWidth: 44,
+              textAlign: 'center',
+            }}
+            title="기본 크기로 복원"
+          >
+            {Math.round(fontScale * 100)}%
+          </button>
+          <button
+            type="button"
+            className="font-size-btn"
+            onClick={() => handleScaleStep(0.1)}
+            aria-label="글자 크게"
+            title="글자 크게"
+          >
+            가+
+          </button>
+        </div>
+      </div>
       {/* 1. 상단 사용자 프로필 & 오늘 운세 메인 카드 */}
       <section className="gold-card" style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '18px 16px' }}>
         {/* 상단 프로필 및 일진 바 */}
@@ -194,7 +313,7 @@ export const FortuneResult: React.FC<FortuneResultProps> = ({
           <h1
             style={{
               fontFamily: 'var(--font-serif)',
-              fontSize: 21,
+              fontSize: 'calc(21px * var(--fortune-font-scale, 1))',
               lineHeight: 1.35,
               color: '#fff9e5',
               margin: '0 0 6px',
@@ -205,7 +324,7 @@ export const FortuneResult: React.FC<FortuneResultProps> = ({
           </h1>
           <p
             style={{
-              fontSize: 12.8,
+              fontSize: 'calc(12.8px * var(--fortune-font-scale, 1))',
               color: 'var(--text-secondary)',
               margin: 0,
               lineHeight: 1.45,
@@ -243,7 +362,7 @@ export const FortuneResult: React.FC<FortuneResultProps> = ({
           <p
             style={{
               margin: 0,
-              fontSize: 13.8,
+              fontSize: 'calc(13.8px * var(--fortune-font-scale, 1))',
               lineHeight: 1.72,
               color: '#f1ede2',
             }}
@@ -285,7 +404,7 @@ export const FortuneResult: React.FC<FortuneResultProps> = ({
         <p
           style={{
             margin: 0,
-            fontSize: 13.5,
+            fontSize: 'calc(13.5px * var(--fortune-font-scale, 1))',
             lineHeight: 1.6,
             color: 'var(--text-secondary)',
           }}
@@ -311,7 +430,7 @@ export const FortuneResult: React.FC<FortuneResultProps> = ({
                 style={{
                   display: 'flex',
                   gap: 6,
-                  fontSize: 12.5,
+                  fontSize: 'calc(12.5px * var(--fortune-font-scale, 1))',
                   lineHeight: 1.5,
                   color: 'var(--gold-light)',
                 }}
@@ -341,11 +460,11 @@ export const FortuneResult: React.FC<FortuneResultProps> = ({
                   {cat.score}점
                 </span>
               </div>
-              <strong style={{ fontSize: 14, color: '#fff8e7' }}>{cat.summary}</strong>
+              <strong style={{ fontSize: 'calc(14px * var(--fortune-font-scale, 1))', color: '#fff8e7' }}>{cat.summary}</strong>
               <p
                 style={{
                   margin: 0,
-                  fontSize: 13.5,
+                  fontSize: 'calc(13.5px * var(--fortune-font-scale, 1))',
                   lineHeight: 1.6,
                   color: 'var(--text-secondary)',
                 }}
@@ -388,25 +507,25 @@ export const FortuneResult: React.FC<FortuneResultProps> = ({
           </div>
           <div className="lucky-box" style={{ gridColumn: '1 / -1' }}>
             <span>오늘 하면 좋은 일</span>
-            <strong>{fortune.lucky.action}</strong>
+            <strong style={{ fontSize: 'calc(13.5px * var(--fortune-font-scale, 1))' }}>{fortune.lucky.action}</strong>
           </div>
           <div className="lucky-box" style={{ gridColumn: '1 / -1' }}>
             <span>오늘 주의할 점</span>
-            <strong style={{ color: '#fcd34d' }}>{fortune.lucky.caution}</strong>
+            <strong style={{ color: '#fcd34d', fontSize: 'calc(13.5px * var(--fortune-font-scale, 1))' }}>{fortune.lucky.caution}</strong>
           </div>
         </div>
       </section>
 
-      {/* 5. 하단 버튼 (다시 스캔 / 처음으로) */}
+      {/* 5. 하단 버튼 (처음(메인)으로 / 다시 스캔하기) */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 4 }}>
-        <button type="button" className="btn-gold" onClick={onRescan}>
-          <RotateCcw size={16} />
-          <span>{isNoScan ? '다시 보기' : '다시 스캔하기'}</span>
-        </button>
-
-        <button type="button" className="btn-secondary" onClick={onGoHome}>
+        <button type="button" className="btn-gold" onClick={onGoHome}>
           <Home size={16} />
           <span>처음(메인)으로</span>
+        </button>
+
+        <button type="button" className="btn-secondary" onClick={onRescan}>
+          <RotateCcw size={16} />
+          <span>{isNoScan ? '다시 보기' : '다시 스캔하기'}</span>
         </button>
       </div>
     </main>

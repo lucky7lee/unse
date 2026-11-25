@@ -357,9 +357,9 @@ export const LandingView: React.FC<LandingViewProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 9,
-          fontSize: 14.5,
-          lineHeight: 1.55,
+          gap: 7,
+          fontSize: 11.6,
+          lineHeight: 1.5,
           color: '#cbd5e1',
           textAlign: 'center',
           marginTop: 'auto',
@@ -367,7 +367,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
           paddingBottom: 4,
         }}
       >
-        <ShieldCheck size={18} color="#34d399" style={{ flexShrink: 0 }} />
+        <ShieldCheck size={15} color="#34d399" style={{ flexShrink: 0 }} />
         <span>
           카메라 영상은 외부로 전송되지 않고
           <br />
